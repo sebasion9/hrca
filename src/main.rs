@@ -1,5 +1,5 @@
-use std::io::{self, Write};
-use std::net::TcpStream;
+use std::io::{self, Write, BufReader, BufRead, Read};
+use std::net::{TcpStream, TcpListener};
 use std::io::BufWriter;
 
 enum HTTPMethod {
@@ -38,7 +38,7 @@ impl Default for HTTPRequest {
             endpoint : "/".to_string(),
             headers : Some(vec![
                 ("Host".to_string(), "127.0.0.1".to_string()),
-                ("User-Agent".to_string(), "my_user_agent".to_string()),
+                ("User-Agent".to_string(), "hrca/1.0".to_string()),
                 ("Accept".to_string(), "*/*".to_string())
             ]),
             body : None
@@ -61,8 +61,21 @@ impl HTTPRequest {
         self.method = method;
         self
     }
-    fn set_headers(&mut self, headers : Vec<HTTPHeader>) -> &mut Self {
-        self.headers = Some(headers);
+    fn set_header(&mut self, header : HTTPHeader) -> &mut Self {
+        if let Some(headers) = &self.headers {
+            let mut headers = headers.clone();
+            headers.push(header);
+            self.headers = Some(headers.to_vec());
+        }
+        else {
+            let mut new_headers = Vec::new();
+            new_headers.push(header);
+            self.headers = Some(new_headers);
+        }
+        self
+    }
+    fn set_endpoint(&mut self, endpoint : String) -> &mut Self {
+        self.endpoint = endpoint;
         self
     }
     fn serialize(&self) -> std::io::Result<Vec<u8>> {
@@ -91,36 +104,41 @@ impl HTTPRequest {
         }
 
         if let Some(body) = &self.body {
-            buf.write(crlf)?;
             buf.write(body.as_bytes())?;
         }
+        buf.write(crlf)?;
 
         Ok(buf)
     }
 }
 
 
-const ADDR :&str = "127.0.0.1:3333";
+
+const ADDR :&str = "localhost:3334";
 
 fn main() -> io::Result<()> {
     let mut stream = BufWriter::new(TcpStream::connect(ADDR)?); 
-    
 
     let method = HTTPMethod::GET;
     let host_header = ("Host".to_string(), "localhost".to_string());
-    let headers : Vec<HTTPHeader> = vec![host_header];
     
     let mut request_new = HTTPRequest::new();
     let request = request_new
         .set_method(method)
-        .set_headers(headers)
+        .set_header(host_header)
+        .serialize()?;
+
+    let default_request = HTTPRequest::default()
+        .set_endpoint("/test".to_string())
+        .set_header(("Cookie".to_string(), "adijjdsaoijda".to_string()))
         .serialize()?;
 
 
-    let default_request = HTTPRequest::default().serialize()?;
-
-    println!("{:?}", default_request);
     stream.write(&default_request)?;
+    println!("{:x?}", default_request);
+    let req_as_str = String::from_utf8(default_request).unwrap();
+    
 
+    
     Ok(())
 }
