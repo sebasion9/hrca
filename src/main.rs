@@ -1,8 +1,9 @@
-use std::io::{self, Write, BufReader, BufRead, Read};
-use std::net::{TcpStream, TcpListener};
-use std::io::BufWriter;
+use std::io::{self, Write, BufReader, Read, BufRead};
+use std::net::{TcpStream, SocketAddr, Ipv4Addr, ToSocketAddrs};
+use std::time::Duration;
+use std::str;
 
-enum HTTPMethod {
+enum Method {
     GET,
     POST,
     PUT,
@@ -10,36 +11,35 @@ enum HTTPMethod {
     OPTIONS,
     HEAD
 }
-impl HTTPMethod {
+impl Method {
     fn to_string(&self) -> String {
         let as_slice : &str = match self {
-            HTTPMethod::GET => "GET",
-            HTTPMethod::PUT => "PUT",
-            HTTPMethod::POST => "POST",
-            HTTPMethod::HEAD => "HEAD",
-            HTTPMethod::DELETE => "DELETE",
-            HTTPMethod::OPTIONS => "OPTIONS"
+            Method::GET => "GET",
+            Method::PUT => "PUT",
+            Method::POST => "POST",
+            Method::HEAD => "HEAD",
+            Method::DELETE => "DELETE",
+            Method::OPTIONS => "OPTIONS"
         };
         as_slice.to_string()
     }
 }
-type HTTPHeader = (String, String);
+type Header = (&'static str, &'static str);
 
-struct HTTPRequest {
-    method : HTTPMethod,
+struct Request {
+    method : Method,
     endpoint : String,
-    headers : Option<Vec<HTTPHeader>>,
+    headers : Option<Vec<Header>>,
     body : Option<String>,
 }
-impl Default for HTTPRequest {
+impl Default for Request {
     fn default() -> Self {
-        HTTPRequest {
-            method : HTTPMethod::GET,
+        Request {
+            method : Method::GET,
             endpoint : "/".to_string(),
             headers : Some(vec![
-                ("Host".to_string(), "127.0.0.1".to_string()),
-                ("User-Agent".to_string(), "hrca/1.0".to_string()),
-                ("Accept".to_string(), "*/*".to_string())
+                ("User-Agent", "hrca/1.0"),
+                ("Accept", "*/*")
             ]),
             body : None
 
@@ -47,21 +47,21 @@ impl Default for HTTPRequest {
     }
     
 }
-impl HTTPRequest {
+impl Request {
     fn new() -> Self {
-        HTTPRequest {
-            method : HTTPMethod::GET,
+        Request {
+            method : Method::GET,
             endpoint : "/".to_string(),
             headers : None,
             body : None,
         }
     }
 
-    fn set_method(&mut self, method : HTTPMethod) -> &mut Self {
+    fn set_method(&mut self, method : Method) -> &mut Self {
         self.method = method;
         self
     }
-    fn set_header(&mut self, header : HTTPHeader) -> &mut Self {
+    fn set_header(&mut self, header : Header) -> &mut Self {
         if let Some(headers) = &self.headers {
             let mut headers = headers.clone();
             headers.push(header);
@@ -111,34 +111,74 @@ impl HTTPRequest {
         Ok(buf)
     }
 }
+struct Response {
+    status : u32,
+    status_msg : String,
+    headers : Option<Vec<Header>>,
+    body : Option<String>
+}
+impl Response {
+    fn new() -> Self {
+        Self {
+            status : 0,
+            status_msg : String::new(),
+            headers : None,
+            body : None
+        }
+    }
+    fn _is_ok(&self) -> bool {
+        todo!()
+    }
+    fn read_response(stream: &mut TcpStream) -> io::Result<String> {
+        let mut buf : [u8; 1024] = [0; 1024];
+        let mut sbuf : String = String::new();
+        loop {
+            let bytes_read = match stream.read(&mut buf) {
+                Ok(bytes) => bytes,
+                Err(_e) => {
+                    break;
+                }
+            };
+
+            let valid_str = str::from_utf8(&buf[..bytes_read])
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+            sbuf.push_str(valid_str);
+            buf = [0; 1024];
+        }
+
+        Ok(sbuf)
+    }
+    fn parse_response(&mut self, response_raw : &String) {
+        todo!()
+    }
+
+}
 
 
-
-const ADDR :&str = "localhost:3334";
-
+const ADDR :&str = "example.com";
+const DEST_PORT : u16 = 80;
 fn main() -> io::Result<()> {
-    let mut stream = BufWriter::new(TcpStream::connect(ADDR)?); 
-
-    let method = HTTPMethod::GET;
-    let host_header = ("Host".to_string(), "localhost".to_string());
+    let socket_addresses : Vec<_> = (ADDR, DEST_PORT).to_socket_addrs()?.collect();
+    let socket_address = socket_addresses[0];
+    let mut stream = TcpStream::connect(&socket_address)?; 
+    stream.set_read_timeout(Some(std::time::Duration::new(2,0)))?;
     
-    let mut request_new = HTTPRequest::new();
-    let request = request_new
-        .set_method(method)
-        .set_header(host_header)
-        .serialize()?;
 
-    let default_request = HTTPRequest::default()
-        .set_endpoint("/test".to_string())
-        .set_header(("Cookie".to_string(), "adijjdsaoijda".to_string()))
+    let host_header = ("Host", ADDR);
+    let default_request = Request::default()
+        .set_header(host_header)
         .serialize()?;
 
 
     stream.write(&default_request)?;
-    println!("{:x?}", default_request);
-    let req_as_str = String::from_utf8(default_request).unwrap();
+
+
+    let raw_response = Response::read_response(&mut stream)?;
+    let mut response = Response::new();
+    response.parse_response(&raw_response);
     
 
-    
+
     Ok(())
 }
