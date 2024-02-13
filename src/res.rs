@@ -1,20 +1,41 @@
 use std::{io::{self, Read}, net::TcpStream, str};
 use crate::{CRLF, Header};
 
-#[derive(Debug)]
-pub struct Response {
+#[derive(Debug, PartialEq, Eq)]
+pub struct Response<'a> {
     status : u32,
     status_msg : String,
-    headers : Option<Vec<Header>>,
+    pub headers : Option<Vec<Header<'a>>>,
     body : Option<String>
 }
-impl Response {
+impl <'a> Response<'a> {
+    pub fn new(status : u32, status_msg : String, headers : Option<Vec<Header<'a>>>, body : Option<String>) -> Self {
+        Self {
+            status,
+            status_msg,
+            headers,
+            body
+        }
+    }
     pub fn is_ok(&self) -> bool {
         if self.status > 199 && self.status < 300 {
             return true;
         }
         return false
     }
+    pub fn get_status_msg(&self) -> String {
+        self.status_msg.clone()
+    }
+    pub fn get_status(&self) -> u32 {
+        self.status
+    }
+    pub fn get_headers(&self) -> Option<Vec<Header>> {
+        self.headers.clone()
+    }
+    pub fn get_body(&self) -> Option<String> {
+        self.body.clone()
+    }
+
     pub fn read_response(stream: &mut TcpStream) -> io::Result<String> {
         let mut buf : [u8; 1024] = [0; 1024];
         let mut sbuf : String = String::new();
@@ -35,7 +56,7 @@ impl Response {
 
         Ok(sbuf)
     }
-    pub fn parse_response(response_raw : &String) -> io::Result<Self> {
+    pub fn parse_response(response_raw : &'a str) -> io::Result<Self> {
         let crlf = str::from_utf8(CRLF)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let mut headers : Vec<&str> = response_raw.split(crlf).collect();
@@ -86,7 +107,7 @@ impl Response {
             let name = splitted[0];
             let value = splitted[1];
 
-            headers.push((name.to_string(), value.to_string()));
+            headers.push((name, value));
         }
 
         headers
