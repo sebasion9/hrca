@@ -1,28 +1,30 @@
-use crate::{CRLF, Header, Method};
+use crate::{CRLF, header_method::{Header, Method, NewHeader}};
 use std::io::Write;
 
-pub struct Request<'a> {
+pub struct Request {
     pub method : Method,
     pub endpoint : String,
-    pub headers : Option<Vec<Header<'a>>>,
+    pub headers : Option<Vec<Header>>,
     pub body : Option<String>,
 }
-impl Default for Request<'_> {
+impl Default for Request {
     fn default() -> Self {
         Request {
             method : Method::GET,
             endpoint : String::from("/"),
-            headers : Some(vec![
-                ("User-Agent", "hrca/1.0"),
-                ("Accept", "*/*")
-            ]),
+            headers : Some(
+                Header::vec(
+                    &[("User-Agent", "hrca/1.0"),
+                    ("Accept", "*/*")]
+                )
+            ),
             body : None
 
         }
     }
     
 }
-impl <'a> Request<'_> {
+impl Request {
     pub fn new() -> Self {
         Request {
             method : Method::GET,
@@ -36,14 +38,14 @@ impl <'a> Request<'_> {
         self.method = method;
         self
     }
-    pub fn set_header(&mut self, header : Header<'static>) -> &mut Self {
+    pub fn set_header(&mut self, header : (&str, &str)) -> &mut Self {
         let new_headers = match &self.headers {
             Some(headers) => {
                 let mut headers = headers.clone();
-                headers.push(header);
+                headers.push(Header::new(header));
                 headers
             }
-            None => vec![header],
+            None => Header::vec(&[header])
         };
 
         self.headers = Some(new_headers);
@@ -58,7 +60,11 @@ impl <'a> Request<'_> {
         self
     }
     pub fn content_len_from_body(&self) -> String {
-        todo!()
+        if let Some(body) = &self.body {
+            let len = body.len();    
+            return len.to_string();
+        }
+        return "0".to_string()
     }
 
     pub fn serialize(&self) -> std::io::Result<Vec<u8>> {
@@ -77,7 +83,7 @@ impl <'a> Request<'_> {
 
         if let Some(headers) = &self.headers {
             for header in  headers {
-                let (header_name, value) = header;
+                let Header(header_name, value) = header;
                 buf.write(header_name.as_bytes())?;
                 buf.write(b": ")?;
                 buf.write(value.as_bytes())?;
