@@ -9,6 +9,7 @@ pub struct Response {
     pub headers : Option<Vec<Header>>,
     body : Option<String>
 }
+
 impl Response {
     pub fn new(status : u32, status_msg : String, headers : Option<Vec<Header>>, body : Option<String>) -> Self {
         Self {
@@ -58,3 +59,4 @@ impl Response {
         Ok(sbuf)
     }
 }
+

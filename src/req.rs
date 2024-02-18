@@ -1,4 +1,4 @@
-use crate::{CRLF, header_method::{Header, Method, NewHeader}};
+use crate::{CRLF, header_method::{Header, Method, NewHeader}, cli::CliHandler};
 use std::io::Write;
 
 pub struct Request {
@@ -24,6 +24,9 @@ impl Default for Request {
     }
     
 }
+
+
+
 impl Request {
     pub fn new() -> Self {
         Request {
@@ -32,6 +35,20 @@ impl Request {
             headers : None,
             body : None,
         }
+    }
+    pub fn from_cli_handler(cli_handler : CliHandler) -> Self {
+        let valid_method;
+        match cli_handler.method {
+            Some(method) => valid_method = method,
+            None => valid_method = Method::GET
+        }
+        Self {
+            body : None,
+            headers : cli_handler.headers,
+            endpoint : "/".to_string(),
+            method : valid_method
+        } 
+
     }
 
     pub fn set_method(&mut self, method : Method) -> &mut Self {
@@ -70,9 +87,9 @@ impl Request {
     pub fn serialize(&self) -> std::io::Result<Vec<u8>> {
         let mut buf : Vec<u8> = Vec::new();
         let method_as_str = &self.method;
-            buf.write(method_as_str.to_string().as_bytes())?;
-            buf.write(b" ")?;
-        
+        buf.write(method_as_str.to_string().as_bytes())?;
+        buf.write(b" ")?;
+
         let endpoint = &self.endpoint;
         buf.write(endpoint.as_bytes())?;
         buf.write(b" ")?;
