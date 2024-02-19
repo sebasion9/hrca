@@ -1,4 +1,4 @@
-use std::{io, str};
+use std::{io, str, ops::IndexMut};
 use crate::http::res::Response;
 use super::header_method::Header;
 
@@ -65,4 +65,15 @@ pub fn parse_status(res_status : &str) -> (u32, String) {
     let code : u32 = splitted[1].parse().unwrap_or(0);
     let msg : String = splitted[2..].join(" ");
     (code, msg)
+}
+
+pub fn strip_http(url : &str) -> Option<String> {
+    let splitted_url = url.split_once("://");
+    if let Some(halves) = splitted_url {
+        let mut valid = halves.1.to_string();
+        valid.pop();
+        return Some(valid);
+    }
+    None
+
 }

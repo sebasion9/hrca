@@ -1,17 +1,17 @@
 extern crate hrca;
 use hrca::http::{res::Response, req::Request};
-const ADDR : &str = "www.example.com";
-const PORT : u16 = 80;
+const ADDR : &str = "docs.rs";
+const PORT : u16 = 443;
 
-fn main() -> std::io::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut request = Request::default();
-    let response : Response = request.set_header(("Host", ADDR))
+    let response : Response = request
+        .set_header(("Host", ADDR))
         .send(std::time::Duration::new(1,0), ADDR.to_string(), PORT)?;
+    println!("{:?}", request);
+    println!("");
     println!("{:?}", response);
+
     Ok(())
 }
-
-
-
-
 

@@ -1,4 +1,4 @@
-use std::{io::{self, Read}, net::TcpStream, str};
+use std::{io::{self, Read}, net::TcpStream};
 use crate::internal::header_method::Header;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,26 +35,44 @@ impl Response {
     pub fn body(&self) -> Option<String> {
         self.body.clone()
     }
+    pub fn header_by_name(&self, header_name : &str) -> Option<&Header> {
+        if let Some(headers) = &self.headers {
+            for header in headers {
+                if header.0.to_lowercase() == header_name.to_lowercase() {
+                    return Some(&header);
+                }
+            }
+        }
+        return None
+    }
 
-    pub fn read_response(stream: &mut TcpStream) -> io::Result<String> {
-        let mut buf : [u8; 1024] = [0; 1024];
-        let mut sbuf : String = String::new();
+    pub fn read_response(stream: &mut native_tls::TlsStream<TcpStream>) -> io::Result<String> {
+        let mut payload : Vec<u8> = Vec::new();
+        let mut buf : [u8 ; 4096] = [0; 4096];
         loop {
-            let bytes_read = match stream.read(&mut buf) {
-                Ok(bytes) => bytes,
+            match stream.read(&mut buf) {
+                Ok(bytes) => {
+                    if bytes == 0 {
+                        break;
+                    }
+                    bytes
+                }
                 Err(_e) => {
                     break;
                 }
             };
 
-            let valid_str = str::from_utf8(&buf[..bytes_read])
-                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-            sbuf.push_str(valid_str);
-            buf = [0; 1024];
+            for byte in buf {
+                if byte != b'\0' {
+                    payload.push(byte);
+                }
+            }
+            buf = [0; 4096];
         }
+        let sbuf = String::from_utf8_lossy(&payload).to_string();
 
         Ok(sbuf)
+        
     }
 }
 

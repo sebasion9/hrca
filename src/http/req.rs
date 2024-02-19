@@ -1,7 +1,8 @@
 use std::io::Write;
-use crate::internal::{header_method::{Method, Header, NewHeader}, parser::{CRLF, parse_response}, stream::create_tcpstream};
+use crate::internal::{header_method::{Method, Header, NewHeader}, parser::{CRLF, parse_response, strip_http}, stream::create_https_tcpstream};
 use super::res::Response;
 
+#[derive(Debug, Clone)]
 pub struct Request {
     method : Method,
     endpoint : String,
@@ -23,9 +24,28 @@ impl Default for Request {
 
         }
     }
-    
 }
 impl Request {
+    fn _get_header(&self, header_name : &str) -> Option<&Header> {
+        if let Some(headers) = &self.headers {
+            for header in headers {
+                if header.0.to_lowercase() == header_name.to_lowercase() {
+                    return Some(header)
+                }
+            }
+        }
+        return None
+    }
+    fn _get_header_mut(&mut self, header_name : &str) -> Option<&mut Header> {
+        if let Some(headers) = &mut self.headers {
+            for header in headers {
+                if header.0.to_lowercase() == header_name.to_lowercase() {
+                    return Some(header)
+                }
+            }
+        }
+        return None
+    }
     fn _content_len(&self) -> String {
         if let Some(body) = &self.body {
             let len = body.len();    
@@ -44,8 +64,8 @@ impl Request {
         buf.write(endpoint.as_bytes())?;
         buf.write(b" ")?;
 
-
         buf.write(b"HTTP/1.1")?;
+
         buf.write(CRLF)?;
 
         if let Some(headers) = &self.headers {
@@ -62,7 +82,6 @@ impl Request {
         if let Some(body) = &self.body {
             buf.write(body.as_bytes())?;
         }
-
         Ok(buf)
     }
 
@@ -79,17 +98,15 @@ impl Request {
         self
     }
     pub fn set_header(&mut self, header : (&str, &str)) -> &mut Self {
-        let new_headers = match &self.headers {
-            Some(headers) => {
-                let mut headers = headers.clone();
-                headers.push(Header::new(header));
-                headers
-            }
-            None => Header::vec(&[header])
-        };
-
-        self.headers = Some(new_headers);
-        self     
+        if let Some(old_header) = self._get_header_mut(header.0) {
+            old_header.1 = header.1.to_string();
+            return self
+        }
+        match &mut self.headers {
+            Some(headers) => headers.push(Header::new(header)),
+            None => self.headers = Some(Header::vec(&[header]))
+        }
+        self
     }
     pub fn set_endpoint(&mut self, endpoint : &str) -> &mut Self {
         self.endpoint = endpoint.to_string();
@@ -100,16 +117,36 @@ impl Request {
         self.set_header(("Content-Length", &self._content_len()));
         self
     }
-    pub fn send(&mut self, dur : std::time::Duration, address: String, port : u16) -> std::io::Result<Response> {
+    pub fn cookie(&mut self, cookie_name : &str, cookie_val : &str) -> &mut Self {
+        if let Some(cookie_header) = self._get_header_mut("cookie") {
+            let formatted_cookie = format!("{}; {}={}",cookie_header.1,cookie_name,cookie_val);
+            cookie_header.1 = formatted_cookie;
+        }
+        else {
+            self.set_header(("Cookie", &format!("{}={}", cookie_name, cookie_val)));
+        }
+        return self
+    }
+
+    pub fn send(&mut self, dur : std::time::Duration, address: String, port : u16) -> Result<Response, Box<dyn std::error::Error>> {
+        let mut req = self.clone();
+
         let serialized = self._serialize()?;
-        let mut stream = create_tcpstream(dur, address, port)?;
+        let mut stream = create_https_tcpstream(dur, address, port)?;
         stream.write(&serialized)?;
         let raw_response = Response::read_response(&mut stream)?;
         if let Ok(res) = parse_response(&raw_response) {
+            let location_header = res.header_by_name("location");
+            if res.status() == 301 && location_header.is_some() {
+                let location = strip_http(&location_header.unwrap().1).expect("Failed to parse location header");
+                let new_res = req.set_header(("Host", &location)).send(dur, location, port)?;
+                return Ok(new_res)
+            }
             return Ok(res);
         }
-        Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "Failed to get the response, (timeout)"))
+        Err(Box::new(std::io::Error::new(std::io::ErrorKind::TimedOut, "Failed to get the response, (timeout)")))
     }
 
 
 }
+
