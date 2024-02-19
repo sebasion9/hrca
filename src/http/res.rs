@@ -1,15 +1,13 @@
 use std::{io::{self, Read}, net::TcpStream, str};
-use crate::Header;
-
+use crate::internal::header_method::Header;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Response {
     status : u32,
     status_msg : String,
-    pub headers : Option<Vec<Header>>,
+    headers : Option<Vec<Header>>,
     body : Option<String>
 }
-
 impl Response {
     pub fn new(status : u32, status_msg : String, headers : Option<Vec<Header>>, body : Option<String>) -> Self {
         Self {
@@ -25,16 +23,16 @@ impl Response {
         }
         return false
     }
-    pub fn get_status_msg(&self) -> String {
+    pub fn status_msg(&self) -> String {
         self.status_msg.clone()
     }
-    pub fn get_status(&self) -> u32 {
+    pub fn status(&self) -> u32 {
         self.status
     }
-    pub fn get_headers(&self) -> Option<Vec<Header>> {
+    pub fn headers(&self) -> Option<Vec<Header>> {
         self.headers.clone()
     }
-    pub fn get_body(&self) -> Option<String> {
+    pub fn body(&self) -> Option<String> {
         self.body.clone()
     }
 

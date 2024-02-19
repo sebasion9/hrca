@@ -1,6 +1,8 @@
-use std::{io::{self, Error}, str};
-use crate::{CRLF, Response, Header};
-use regex::Regex;
+use std::{io, str};
+use crate::http::res::Response;
+use super::header_method::Header;
+
+pub const CRLF : &[u8; 2] = b"\r\n";
 
 pub fn parse_response(response_raw : &str) -> io::Result<Response> {
     let crlf = str::from_utf8(CRLF)
@@ -64,35 +66,3 @@ pub fn parse_status(res_status : &str) -> (u32, String) {
     let msg : String = splitted[2..].join(" ");
     (code, msg)
 }
-
-
-
-pub fn parse_url(url_str : &str) -> Option<String> {
-    let url_regex = Regex::new(r"(http|https)://(([\w-]+\.)+)\w+").unwrap();
-    let mat = url_regex.find(url_str);
-    if let Some(matched) = mat {
-        return Some(matched.as_str().to_string())
-    }
-    let ip_regex = Regex::new(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").unwrap();
-    let mat_ip = ip_regex.find(url_str);
-    if let Some(matched) = mat_ip {
-        return Some(matched.as_str().to_string());
-    }
-    
-    None
-}
-pub fn parse_host(url : &str) -> std::io::Result<String>{
-    let host_regex = Regex::new(r"[^((http|https)://)](([\w-]+\.)+)\w+").unwrap();
-    let mat_host = host_regex.find(url);
-    if let Some(matched) = mat_host {
-        return Ok(matched.as_str().to_string());
-    }
-
-
-    Err(Error::new(io::ErrorKind::InvalidData, "failed to parse host"))
-}
-
-
-
-
-
