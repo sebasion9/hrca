@@ -1,4 +1,4 @@
-use std::{io, str, ops::IndexMut};
+use std::{io, str};
 use crate::http::res::Response;
 use super::header_method::Header;
 

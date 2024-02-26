@@ -2,6 +2,50 @@ use std::io::Write;
 use crate::internal::{header_method::{Method, Header, NewHeader}, parser::{CRLF, parse_response, strip_http}, stream::create_https_tcpstream};
 use super::res::Response;
 
+pub enum MixedParam {
+    Flat((String, String)),
+    Arr(Vec<(String,String)>)
+}
+pub trait IntoMixedParam {
+    fn into(self) -> MixedParam;
+}
+impl IntoMixedParam for (&str,&str) {
+    fn into(self) -> MixedParam {
+        MixedParam::Flat((self.0.to_string(), self.1.to_string()))
+    }
+}
+impl IntoMixedParam for Vec<(&str,&str)> {
+    fn into(self) -> MixedParam {
+        let mut string_vec = vec![];
+        for pair in self {
+            string_vec.push((pair.0.to_string(),pair.1.to_string()))
+        }
+        MixedParam::Arr(string_vec)
+    }
+}
+impl IntoMixedParam for &[(&str,&str)] {
+    fn into(self) -> MixedParam {
+        let mut string_vec = vec![];
+        for pair in self {
+            string_vec.push((pair.0.to_string(),pair.1.to_string()))
+        }
+        MixedParam::Arr(string_vec)
+    }
+}
+impl<const N: usize> IntoMixedParam for &[(&str,&str); N] {
+    fn into(self) -> MixedParam {
+        let mut string_vec = vec![];
+        for pair in self {
+            string_vec.push((pair.0.to_string(),pair.1.to_string()))
+        }
+        MixedParam::Arr(string_vec)
+    }
+}
+
+
+
+
+
 #[derive(Debug, Clone)]
 pub struct Request {
     method : Method,
@@ -109,6 +153,13 @@ impl Request {
         self
     }
     pub fn set_endpoint(&mut self, endpoint : &str) -> &mut Self {
+        let endpoint = format!("/{}",endpoint);
+        if let Some(found) = endpoint.find('?') {
+            self.endpoint = endpoint[0..found].to_string();
+            println!("attempted to add query params at endpoint setting, please use url_query method, endpoint set to: {}", self.endpoint);
+            return self
+        }
+
         self.endpoint = endpoint.to_string();
         self
     }
@@ -117,21 +168,75 @@ impl Request {
         self.set_header(("Content-Length", &self._content_len()));
         self
     }
-    pub fn cookie(&mut self, cookie_name : &str, cookie_val : &str) -> &mut Self {
-        if let Some(cookie_header) = self._get_header_mut("cookie") {
-            let formatted_cookie = format!("{}; {}={}",cookie_header.1,cookie_name,cookie_val);
-            cookie_header.1 = formatted_cookie;
+    pub fn cookie<T: IntoMixedParam>(&mut self, params : T) -> &mut Self {
+        let params_vec : Vec<(String, String)> = match params.into() {
+            MixedParam::Flat(pair) => vec![pair],
+            MixedParam::Arr(pairs) => pairs
+        };
+        let mut header = String::new();
+        if let Some(cookie_header) = self._get_header("cookie") {
+            header = cookie_header.1.clone();
+        }
+        for i in 0..params_vec.len() {
+            let (name, val) = &params_vec[i];
+            if i != 0 {
+                let formatted_cookie = format!("{}; {}={}", header, name, val);
+                header = formatted_cookie;
+            }
+            else {
+                if header.is_empty() {
+                    let formatted_cookie = format!("{}={}",name,val);
+                    header = formatted_cookie;
+                }
+                else {
+                    let formatted_cookie = format!("{}; {}={}", header,name,val);
+                    header = formatted_cookie;
+                }
+            }
+        }
+        self.set_header(("Cookie", &header));
+
+
+
+        return self
+    }
+    pub fn url_query<T: IntoMixedParam>(&mut self, params: T) -> &mut Self {
+        let params_vec : Vec<(String, String)> = match params.into() {
+            MixedParam::Flat(pair) => {
+                vec![pair]
+            },
+            MixedParam::Arr(pairs) => pairs
+        };
+        let url_string = &mut self.endpoint;
+        if let Some(_) = url_string.find('?') {
+            url_string.push('&');
         }
         else {
-            self.set_header(("Cookie", &format!("{}={}", cookie_name, cookie_val)));
+            url_string.push('?');
         }
-        return self
+        for i in 0..params_vec.len()  {
+            if i != 0 {
+                url_string.push('&');
+            }
+            let (param_name, param_val) = &params_vec[i];
+            url_string.push_str(&param_name);
+            url_string.push('=');
+            url_string.push_str(&param_val);
+        }
+
+        self
+
     }
 
     pub fn send(&mut self, dur : std::time::Duration, address: String, port : u16) -> Result<Response, Box<dyn std::error::Error>> {
         let mut req = self.clone();
-
+        
         let serialized = self._serialize()?;
+        
+        println!("{}", String::from_utf8(serialized.clone()).unwrap());
+
+
+        
         let mut stream = create_https_tcpstream(dur, address, port)?;
         stream.write(&serialized)?;
         let raw_response = Response::read_response(&mut stream)?;
@@ -147,6 +252,13 @@ impl Request {
         Err(Box::new(std::io::Error::new(std::io::ErrorKind::TimedOut, "Failed to get the response, (timeout)")))
     }
 
+    pub fn create_json_obj() {
+
+    }
+
 
 }
+
+
+
 
