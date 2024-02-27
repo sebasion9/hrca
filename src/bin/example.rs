@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ("second_cookie", "cookie_value")
         ])
         .cookie(("one","two"))
-        .send(std::time::Duration::new(1,0), ADDR.to_string(), PORT)?;
+        .send(std::time::Duration::new(1,0), ADDR, PORT)?;
 
     println!("{:?}", request);
     println!("");

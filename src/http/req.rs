@@ -41,7 +41,16 @@ impl<const N: usize> IntoMixedParam for &[(&str,&str); N] {
         MixedParam::Arr(string_vec)
     }
 }
-
+impl IntoMixedParam for (String, String) {
+    fn into(self) -> MixedParam {
+        MixedParam::Flat(self)
+    }
+}
+impl IntoMixedParam for Vec<(String, String)> {
+    fn into(self) -> MixedParam {
+        MixedParam::Arr(self)
+    }
+}
 
 
 
@@ -154,12 +163,6 @@ impl Request {
     }
     pub fn set_endpoint(&mut self, endpoint : &str) -> &mut Self {
         let endpoint = format!("/{}",endpoint);
-        if let Some(found) = endpoint.find('?') {
-            self.endpoint = endpoint[0..found].to_string();
-            println!("attempted to add query params at endpoint setting, please use url_query method, endpoint set to: {}", self.endpoint);
-            return self
-        }
-
         self.endpoint = endpoint.to_string();
         self
     }
@@ -207,6 +210,9 @@ impl Request {
             },
             MixedParam::Arr(pairs) => pairs
         };
+
+
+
         let url_string = &mut self.endpoint;
         if let Some(_) = url_string.find('?') {
             url_string.push('&');
@@ -228,34 +234,23 @@ impl Request {
 
     }
 
-    pub fn send(&mut self, dur : std::time::Duration, address: String, port : u16) -> Result<Response, Box<dyn std::error::Error>> {
+    pub fn send(&mut self, dur : std::time::Duration, address: &str, port : u16) -> Result<Response, Box<dyn std::error::Error>> {
         let mut req = self.clone();
-        
         let serialized = self._serialize()?;
-        
-        println!("{}", String::from_utf8(serialized.clone()).unwrap());
-
-
-        
-        let mut stream = create_https_tcpstream(dur, address, port)?;
+        let mut stream = create_https_tcpstream(dur, address.to_string(), port)?;
         stream.write(&serialized)?;
         let raw_response = Response::read_response(&mut stream)?;
         if let Ok(res) = parse_response(&raw_response) {
             let location_header = res.header_by_name("location");
             if res.status() == 301 && location_header.is_some() {
                 let location = strip_http(&location_header.unwrap().1).expect("Failed to parse location header");
-                let new_res = req.set_header(("Host", &location)).send(dur, location, port)?;
+                let new_res = req.set_header(("Host", &location)).send(dur, &location, port)?;
                 return Ok(new_res)
             }
             return Ok(res);
         }
         Err(Box::new(std::io::Error::new(std::io::ErrorKind::TimedOut, "Failed to get the response, (timeout)")))
     }
-
-    pub fn create_json_obj() {
-
-    }
-
 
 }
 
