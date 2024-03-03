@@ -146,21 +146,36 @@ impl Request {
             body : None,
         }
     }
+
     pub fn set_method(&mut self, method : &str) -> &mut Self {
         if let Some(m) = Method::from_str(method) {
             self.method = m;
         }
         self
     }
-    pub fn set_header(&mut self, header : (&str, &str)) -> &mut Self {
-        if let Some(old_header) = self._get_header_mut(header.0) {
-            old_header.1 = header.1.to_string();
-            return self
+    pub fn set_header<T : IntoMixedParam>(&mut self, headers : T) -> &mut Self {
+        let headers_vec : Vec<(String, String)> = match headers.into() {
+            MixedParam::Arr(pairs) => pairs,
+            MixedParam::Flat(pair) => vec![pair]
+        };
+        
+        let mut new_headers = vec![];
+        for pair in &headers_vec {
+            if let Some(old_header) = self._get_header_mut(&pair.0) {
+                old_header.1 = (*pair.1).to_string();
+            }
         }
-        match &mut self.headers {
-            Some(headers) => headers.push(Header::new(header)),
-            None => self.headers = Some(Header::vec(&[header]))
+        if let Some(curr_headers) = &self.headers {
+            new_headers = curr_headers.to_vec(); 
         }
+        for pair in headers_vec {
+            if let Some(_alrdy) = self._get_header(&pair.0) {
+                continue;
+            }
+            new_headers.push(Header::new((&pair.0, &pair.1)));
+        }
+
+        self.headers = Some(new_headers.to_vec());
         self
     }
     pub fn set_endpoint(&mut self, endpoint : &str) -> &mut Self {
@@ -168,11 +183,13 @@ impl Request {
         self.endpoint = endpoint.to_string();
         self
     }
+    /// Content-Length header handled when body is appended
     pub fn set_body(&mut self, body : &str) -> &mut Self {
         self.body = Some(body.to_string());
-        self.set_header(("Content-Length", &self._content_len()));
+        self.set_header(("Content-Length".to_string(), self._content_len()));
         self
     }
+    
     pub fn cookie<T: IntoMixedParam>(&mut self, params : T) -> &mut Self {
         let params_vec : Vec<(String, String)> = match params.into() {
             MixedParam::Flat(pair) => vec![pair],
@@ -199,7 +216,7 @@ impl Request {
                 }
             }
         }
-        self.set_header(("Cookie", &header));
+        self.set_header(("Cookie".to_string(), header));
 
 
 
@@ -246,7 +263,7 @@ impl Request {
             let location_header = res.header_by_name("location");
             if res.status() == 301 && location_header.is_some() {
                 let location = strip_http(&location_header.unwrap().1).expect("Failed to parse location header");
-                let new_res = req.set_header(("Host", &location)).send(dur, &location, port)?;
+                let new_res = req.set_header(("Host".to_string(), location.clone())).send(dur, &location, port)?;
                 return Ok(new_res)
             }
             return Ok(res);

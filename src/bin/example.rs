@@ -7,6 +7,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut request = Request::default();
     let response : Response = request
         .set_header(("Host", ADDR))
+        .set_header(("franzl", "lang"))
+        .set_header(("franzl", "arena"))
+        .set_header(&[
+                    ("header3", "val")
+        ])
         .set_endpoint("jodler_base_arena")
         .set_method("POST")
         .url_query(("test", "base"))
@@ -28,7 +33,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?}", request);
     println!("");
     println!("{:?}", response);
-
 
     Ok(())
 }
