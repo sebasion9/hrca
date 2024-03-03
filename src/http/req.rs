@@ -195,6 +195,11 @@ impl Request {
             MixedParam::Flat(pair) => vec![pair],
             MixedParam::Arr(pairs) => pairs
         };
+
+        if params_vec.len() == 0 {
+            return self
+        }
+
         let mut header = String::new();
         if let Some(cookie_header) = self._get_header("cookie") {
             header = cookie_header.1.clone();
