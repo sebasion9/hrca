@@ -1,5 +1,5 @@
 use std::io::Write;
-use crate::internal::{header_method::{Method, Header, NewHeader}, parser::{CRLF, parse_response, strip_http}, stream::create_https_tcpstream};
+use crate::internal::{header_method::{Method, Header, NewHeader, TryIntoMethod}, parser::{CRLF, parse_response, strip_http}, stream::create_https_tcpstream};
 use super::res::Response;
 
 pub enum MixedParam {
@@ -146,8 +146,10 @@ impl Request {
             body : None,
         }
     }
-    pub fn set_method(&mut self, method : Method) -> &mut Self {
-        self.method = method;
+    pub fn set_method(&mut self, method : &str) -> &mut Self {
+        if let Some(m) = Method::from_str(method) {
+            self.method = m;
+        }
         self
     }
     pub fn set_header(&mut self, header : (&str, &str)) -> &mut Self {

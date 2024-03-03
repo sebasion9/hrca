@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let response : Response = request
         .set_header(("Host", ADDR))
         .set_endpoint("jodler_base_arena")
+        .set_method("POST")
         .url_query(("test", "base"))
         .url_query(&[
                    ("test2", "franzl"),

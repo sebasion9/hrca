@@ -33,6 +33,17 @@ impl Method {
         }
     }
 }
+pub trait TryIntoMethod {
+    fn try_into_method(&self) -> Option<Method>;
+}
+impl TryIntoMethod for &str {
+    fn try_into_method(&self) -> Option<Method> {
+        Method::from_str(self)
+    }
+}
+
+
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Header (pub String, pub String);
 pub trait NewHeader {
