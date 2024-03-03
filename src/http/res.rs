@@ -6,15 +6,17 @@ pub struct Response {
     status : u32,
     status_msg : String,
     headers : Option<Vec<Header>>,
-    body : Option<String>
+    body : Option<String>,
+    raw : String
 }
 impl Response {
-    pub fn new(status : u32, status_msg : String, headers : Option<Vec<Header>>, body : Option<String>) -> Self {
+    pub fn new(status : u32, status_msg : String, headers : Option<Vec<Header>>, body : Option<String>, raw : String) -> Self {
         Self {
             status,
             status_msg,
             headers,
-            body
+            body,
+            raw
         }
     }
     pub fn is_ok(&self) -> bool {
@@ -44,6 +46,10 @@ impl Response {
             }
         }
         return None
+    }
+
+    pub fn raw(&self) -> String {
+        self.raw.clone()
     }
 
     pub fn read_response(stream: &mut native_tls::TlsStream<TcpStream>) -> io::Result<String> {

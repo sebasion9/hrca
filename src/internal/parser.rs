@@ -34,11 +34,10 @@ pub fn parse_response(response_raw : &str) -> io::Result<Response> {
         body = Some(body_vec.join(""));
     }
 
-
-
     let headers = parse_headers(headers)?;
     let (status, status_msg) = parse_status(res_status);
-    let response : Response = Response::new(status, status_msg, Some(headers), body);
+    let raw_res_back = format!("{}\r\n{}", res_status, response_raw);
+    let response : Response = Response::new(status, status_msg, Some(headers), body, raw_res_back);
     Ok(response)
 }
 

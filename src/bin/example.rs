@@ -26,9 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .cookie(("one","two"))
         .send(std::time::Duration::new(1,0), ADDR, PORT)?;
 
-    println!("{:?}", request);
-    println!("");
-    println!("{:?}", response);
+    println!("{}", response.raw());
 
     Ok(())
 }
