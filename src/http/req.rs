@@ -233,20 +233,22 @@ impl Request {
 
 
         let url_string = &mut self.endpoint;
-        if let Some(_) = url_string.find('?') {
-            url_string.push('&');
-        }
-        else {
-            url_string.push('?');
-        }
-        for i in 0..params_vec.len()  {
-            if i != 0 {
+        if params_vec.len() > 0 {
+            if let Some(_) = url_string.find('?') {
                 url_string.push('&');
             }
-            let (param_name, param_val) = &params_vec[i];
-            url_string.push_str(&param_name);
-            url_string.push('=');
-            url_string.push_str(&param_val);
+            else {
+                url_string.push('?');
+            }
+            for i in 0..params_vec.len()  {
+                if i != 0 {
+                    url_string.push('&');
+                }
+                let (param_name, param_val) = &params_vec[i];
+                url_string.push_str(&param_name);
+                url_string.push('=');
+                url_string.push_str(&param_val);
+            }
         }
 
         self

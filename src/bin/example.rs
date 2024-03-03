@@ -4,6 +4,7 @@ const ADDR : &str = "example.com";
 const PORT : u16 = 443;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let test_vec : Vec<(&str,&str)> = vec![];
     let mut request = Request::default();
     let response : Response = request
         .set_header(("Host", ADDR))
@@ -12,13 +13,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_header(&[
                     ("header3", "val")
         ])
-        .set_endpoint("jodler_base_arena")
+        .url_query(test_vec)
         .set_method("POST")
-        .url_query(("test", "base"))
-        .url_query(&[
-                   ("test2", "franzl"),
-                   ("x","d")
-        ])
         .cookie(&[
                 ("cookie_name", "cookie_val"),
                 ("second_cookie", "cookie_value")
